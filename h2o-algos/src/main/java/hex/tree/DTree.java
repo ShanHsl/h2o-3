@@ -292,8 +292,7 @@ public class DTree extends Iced {
         return currentConstraints; // didn't split on a column with constraints => no need to modify them
       }
       double mid = (_p0 + _p1) / 2;
-      Constraint newConstraint = new Constraint(constraint, way, mid);
-      return currentConstraints.withNewConstraint(_col, newConstraint);
+      return currentConstraints.withNewConstraint(way, mid);
     }
 
     @Override public String toString() {
@@ -509,8 +508,18 @@ public class DTree extends Iced {
         computeSplit();
       }
       public final DTree.Split computeSplit() {
-        Constraint constraint = _cs != null ? _cs.getColumnConstraint(_col) : null;
-        _s = findBestSplitPoint(_hs[_col], _col, _tree._parms._min_rows, constraint);
+        final double min, max;
+        final Constraint constraint;
+        if (_cs != null) {
+          min = _cs._min;
+          max = _cs._max;
+          constraint = _cs.getColumnConstraint(_col);
+        } else {
+          min = Double.NaN;
+          max = Double.NaN;
+          constraint = null;
+        }
+        _s = findBestSplitPoint(_hs[_col], _col, _tree._parms._min_rows, constraint, min, max);
         return _s;
       }
     }
@@ -773,7 +782,8 @@ public class DTree extends Iced {
     return new CompressedTree(ab.buf(), _seed,tid,cls);
   }
 
-  static Split findBestSplitPoint(DHistogram hs, int col, double min_rows, Constraint constraint) {
+  private static Split findBestSplitPoint(DHistogram hs, int col, double min_rows,
+                                          Constraint constraint, double min, double max) {
     if(hs._vals == null) {
       if (SharedTree.DEV_DEBUG) Log.info("can't split " + hs._name + ": histogram not filled yet.");
       return null; // TODO: there are empty leafs?
@@ -1000,14 +1010,14 @@ public class DTree extends Iced {
         if (SharedTree.DEV_DEBUG) Log.info("can't split " + hs._name + ": split would violate monotone constraint.");
         return null;
       }
-      if (!Double.isNaN(constraint._min) && constraint._direction * predLeft / nLeft > constraint._direction * constraint._min) {
-        if (SharedTree.DEV_DEBUG) Log.info("can't split " + hs._name + ": split would violate monotone constraint (min value).");
-        return null;
-      }
-      if (!Double.isNaN(constraint._max) && constraint._direction * predRight / nRight > constraint._direction * constraint._max) {
-        if (SharedTree.DEV_DEBUG) Log.info("can't split " + hs._name + ": split would violate monotone constraint (max value).");
-        return null;
-      }
+    }
+    if (!Double.isNaN(min) && predLeft / nLeft < min) {
+      if (SharedTree.DEV_DEBUG) Log.info("can't split " + hs._name + ": split would violate monotone constraint (min value).");
+      return null;
+    }
+    if (!Double.isNaN(max) && predRight / nRight > max) {
+      if (SharedTree.DEV_DEBUG) Log.info("can't split " + hs._name + ": split would violate monotone constraint (max value).");
+      return null;
     }
 
     // For categorical (unordered) predictors, we sorted the bins by average
