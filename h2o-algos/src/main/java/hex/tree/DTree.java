@@ -1015,7 +1015,15 @@ public class DTree extends Iced {
       if (SharedTree.DEV_DEBUG) Log.info("can't split " + hs._name + ": split would violate monotone constraint (min value).");
       return null;
     }
+    if (!Double.isNaN(max) && predLeft / nLeft > max) {
+      if (SharedTree.DEV_DEBUG) Log.info("can't split " + hs._name + ": split would violate monotone constraint (min value).");
+      return null;
+    }
     if (!Double.isNaN(max) && predRight / nRight > max) {
+      if (SharedTree.DEV_DEBUG) Log.info("can't split " + hs._name + ": split would violate monotone constraint (max value).");
+      return null;
+    }
+    if (!Double.isNaN(min) && predRight / nRight < min) {
       if (SharedTree.DEV_DEBUG) Log.info("can't split " + hs._name + ": split would violate monotone constraint (max value).");
       return null;
     }
